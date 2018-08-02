@@ -17,38 +17,25 @@ if [ "$APPDYNAMICS_START_AGENT" = "true" ]; then
     echo "Found PID:${pid}:" >> appdynamics.log
 
     # Determine tier name from hostname
-    #a=m2meventlistenerstg-v2-65785c574d-tlns7
+    #a=cadet-vehicle-7d9484c675-jmklb
     a=$HOSTNAME
-    #b=stg
-    b=$spring_profile
+    #b=Development
+    b=$ENVIRONMENT
 
     echo "Found HOSTNAME:${a}:" >> appdynamics.log
-    echo "Found spring_profile:${b}:" >> appdynamics.log
+    echo "Found ENVIRONMENT:${b}:" >> appdynamics.log
 
-    strindex() { 
-    x="${1%%$2*}"
-    [[ "$x" = "$1" ]] && index=-1 || index="${#x}"
-    }
-    strindex "$a" "$b"
-    if [ $index = "-1" ]; then
-        echo "WARN: Failed to parse the hostname for a service name, checking for qa." >> appdynamics.log
-        strindex "$a" "qa"
-        if [ $index = "-1" ]; then
-            appd_tier_name=$HOSTNAME
-            echo "ERROR: Failed to parse the hostname for a service name, using hostname instead." >> appdynamics.log
-        else
-            appd_tier_name=${a:0:$index}
-        fi
-    else
-        appd_tier_name=${a:0:$index}
-    fi
+    appd_app_name="$(cut -d'-' -f1 <<<"$a")"-$b
+    echo "Set appd_app_name to:${appd_app_name}:" >> appdynamics.log
+
+    appd_tier_name="$(cut -d'-' -f2 <<<"$a")"
     echo "Set appd_tier_name to:${appd_tier_name}:" >> appdynamics.log
 
     export UNIQUE_HOST_ID=$(sed -rn '1s#.*/##; 1s/(.{12}).*/\1/p' /proc/self/cgroup)
     echo "Unique Host ID is:${UNIQUE_HOST_ID}:" >> appdynamics.log
 
-    echo "Hooking AppD agent into pid:${pid}, with app name:WCloud-residential-$spring_profile, tier name:${appd_tier_name}, and node name prefix:${appd_tier_name}, node name reuse is set to 'true'" >> appdynamics.log
-    java -Xbootclasspath/a:/usr/lib/jvm/java-1.8.0-openjdk-amd64/lib/tools.jar -jar /opt/appdynamics/agent/javaagent.jar ${pid} appdynamics.agent.applicationName=WCloud-residential-$spring_profile,appdynamics.agent.tierName=${appd_tier_name},appdynamics.agent.reuse.nodeName.prefix=${appd_tier_name},appdynamics.agent.reuse.nodeName=true,appdynamics.agent.uniqueHostId=${UNIQUE_HOST_ID},appdynamics.analytics.agent.url=http://169.60.159.85:9090/v2/sinks/bt &
+    echo "Hooking AppD agent into pid:${pid}, with app name:${appd_app_name}, tier name:${appd_tier_name}, and node name prefix:${appd_tier_name}, node name reuse is set to 'true'" >> appdynamics.log
+    java -Xbootclasspath/a:/usr/lib/jvm/java-1.8.0-openjdk-amd64/lib/tools.jar -jar /opt/appdynamics/agent/javaagent.jar ${pid} appdynamics.agent.applicationName=${appd_app_name},appdynamics.agent.tierName=${appd_tier_name},appdynamics.agent.reuse.nodeName.prefix=${appd_tier_name},appdynamics.agent.reuse.nodeName=true,appdynamics.agent.uniqueHostId=${UNIQUE_HOST_ID},appdynamics.analytics.agent.url=http://169.60.159.85:9090/v2/sinks/bt &
     echo "AppD agent has been hooked!" >> appdynamics.log
 else 
     echo "APPDYNAMICS_START_AGENT is 'false', exiting without hooking agent" >> appdynamics.log
